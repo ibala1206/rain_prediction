@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Water Prediction
+Comment=Run the Ketchikan water prediction forecast
+Path=/home/ibala1206/Design_Work/Eric_olson_Work/water_prediction
+Exec=/home/ibala1206/Design_Work/Eric_olson_Work/water_prediction/run_water_prediction.sh
+Icon=/home/ibala1206/Design_Work/Eric_olson_Work/water_prediction/icon.png
+Terminal=true
+Categories=Utility;

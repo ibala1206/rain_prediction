@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Water Prediction">
+  <defs>
+    <linearGradient id="water" x1="68" y1="32" x2="196" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#55d6ff"/>
+      <stop offset="0.55" stop-color="#1684d8"/>
+      <stop offset="1" stop-color="#0b4f9f"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="74" y1="89" x2="184" y2="177" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#dff5ff" stop-opacity="0.78"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="#102033"/>
+  <path fill="url(#water)" d="M128 28c-26 34-74 94-74 140 0 44 33 74 74 74s74-30 74-74c0-46-48-106-74-140Z"/>
+  <path fill="#ffffff" fill-opacity="0.28" d="M93 83c-18 25-29 53-29 76 0 36 26 63 64 63 10 0 20-2 28-6-54 3-92-44-63-133Z"/>
+  <rect x="73" y="92" width="110" height="82" rx="14" fill="url(#panel)"/>
+  <path d="M90 151h76" stroke="#26506b" stroke-width="8" stroke-linecap="round" opacity="0.22"/>
+  <path d="M91 147l24-25 22 17 28-36" fill="none" stroke="#083c6e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="91" cy="147" r="7" fill="#0b4f9f"/>
+  <circle cx="115" cy="122" r="7" fill="#0b4f9f"/>
+  <circle cx="137" cy="139" r="7" fill="#0b4f9f"/>
+  <circle cx="165" cy="103" r="7" fill="#0b4f9f"/>
+  <path d="M179 62c11 14 23 33 29 48" stroke="#7ee3ff" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+</svg>
