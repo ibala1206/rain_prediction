@@ -25,6 +25,10 @@ FORECAST_DAYS = 7
 # Open-Meteo endpoint
 API_URL = "https://api.open-meteo.com/v1/forecast"
 
+# A day only triggers an alert when BOTH thresholds are exceeded
+MIN_RAIN_PROBABILITY = 50      # percent
+MIN_RAIN_INCHES = 0.01        # inches
+
 # Pandas display settings (so the console printout isn't truncated)
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", None)
@@ -106,18 +110,23 @@ def build_forecast_dataframe(data: dict) -> pd.DataFrame:
 
 
 def print_rain_alerts(df: pd.DataFrame) -> None:
-    """Print a warning for each day with a rain probability above 50%."""
+    """Print a warning for each day that exceeds both the probability and rainfall thresholds."""
     print("\nRain Probability Alerts\n")
 
-    alerts = df[df["Rain_Probability_%"] > 50]
+    alerts = df[
+        (df["Rain_Probability_%"] > MIN_RAIN_PROBABILITY)
+        & (df["Rain_Inches"] > MIN_RAIN_INCHES)
+    ]
 
     if alerts.empty:
-        print("No days with rain probability above 50%.")
+        print(f"No days with rain probability above {MIN_RAIN_PROBABILITY}% "
+              f"and rainfall above {MIN_RAIN_INCHES} in.")
         return
 
     for _, row in alerts.iterrows():
         print(f"It will likely rain on {row['Date']} "
-              f"(Rain Probability: {row['Rain_Probability_%']}%)")
+              f"(Rain Probability: {row['Rain_Probability_%']}%, "
+              f"Expected Rain: {row['Rain_Inches']:.3f} in)")
 
 
 
