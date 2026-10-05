@@ -6,7 +6,10 @@ estimated rainy hours) for a fixed location near Ketchikan/Saxman, AK,
 using the Open-Meteo API, then saves the results to a dated CSV file.
 """
 
+import sys
 from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -28,6 +31,13 @@ API_URL = "https://api.open-meteo.com/v1/forecast"
 # A day only triggers an alert when BOTH thresholds are exceeded
 MIN_RAIN_PROBABILITY = 50      # percent
 MIN_RAIN_INCHES = 0.01        # inches
+
+# Tanks below this water level (percent) get a rain warning
+LOW_WATER_PERCENT = 15
+
+# Project that holds the PostgreSQL connection code (reports_query.py)
+TANKQUERY_DIR = (Path.home() / "Design_Work/Cheeyoong_Work/CheeYoong_Everything"
+                 / "tankquery_nonAWS_Test_db")
 
 # Pandas display settings (so the console printout isn't truncated)
 pd.set_option("display.max_columns", None)
@@ -109,14 +119,19 @@ def build_forecast_dataframe(data: dict) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
+def get_rain_alert_days(df: pd.DataFrame) -> pd.DataFrame:
+    """Return the days that exceed both the probability and rainfall thresholds."""
+    return df[
+        (df["Rain_Probability_%"] > MIN_RAIN_PROBABILITY)
+        & (df["Rain_Inches"] > MIN_RAIN_INCHES)
+    ]
+
+
 def print_rain_alerts(df: pd.DataFrame) -> None:
     """Print a warning for each day that exceeds both the probability and rainfall thresholds."""
     print("\nRain Probability Alerts\n")
 
-    alerts = df[
-        (df["Rain_Probability_%"] > MIN_RAIN_PROBABILITY)
-        & (df["Rain_Inches"] > MIN_RAIN_INCHES)
-    ]
+    alerts = get_rain_alert_days(df)
 
     if alerts.empty:
         print(f"No days with rain probability above {MIN_RAIN_PROBABILITY}% "
@@ -128,6 +143,58 @@ def print_rain_alerts(df: pd.DataFrame) -> None:
               f"(Rain Probability: {row['Rain_Probability_%']}%, "
               f"Expected Rain: {row['Rain_Inches']:.3f} in)")
 
+
+def fetch_low_water_users(threshold: float = LOW_WATER_PERCENT) -> pd.DataFrame:
+    """Return users with at least one tank below `threshold` percent full (one row per user)."""
+    # Reuse the existing connection code from the tankquery project
+    sys.path.insert(0, str(TANKQUERY_DIR))
+    from reports_query import DB_CONFIG, Database
+
+    query = """
+        select distinct on (u.user_id)
+            u.user_id,
+            u.first_name as user_name
+        from users u
+        join houses h on h.user_id = u.user_id
+        join water_tanks wt on wt.house_id = h.house_id
+        where ((wt.current_water_amount / nullif(wt.tank_capacity, 0)) * 100) < %s
+        order by u.user_id
+    """
+
+    db = Database()
+    db.connect(DB_CONFIG)
+    try:
+        return db.read_df(query, [Decimal(str(threshold))])
+    finally:
+        db.close()
+
+
+def print_low_water_rain_warnings(df: pd.DataFrame) -> None:
+    """Print a rain warning for every user whose tank is below the low-water threshold."""
+    print(f"\nLow Water Rain Warnings (tanks below {LOW_WATER_PERCENT}%)\n")
+
+    try:
+        users = fetch_low_water_users()
+    except Exception as exc:
+        print(f"Error querying database: {exc}")
+        return
+
+    if users.empty:
+        print(f"No tanks below {LOW_WATER_PERCENT}% water level")
+        return
+
+    alerts = get_rain_alert_days(df)
+
+    if alerts.empty:
+        print(f"{len(users)} user(s) below {LOW_WATER_PERCENT}%, but no rain is "
+              f"forecast above the alert thresholds.")
+        return
+
+    for _, user in users.iterrows():
+        for _, row in alerts.iterrows():
+            print(f"{user['user_name']}, it will likely rain on {row['Date']} "
+                  f"(Rain Probability: {row['Rain_Probability_%']}%, "
+                  f"Expected Rain: {row['Rain_Inches']:.3f} in)")
 
 
 def save_forecast_csv(df: pd.DataFrame, prefix: str = "ketchikan_rain_forecast") -> str:
@@ -166,6 +233,8 @@ def main() -> None:
 
     output_file = save_forecast_csv(df)
     print(f"\nForecast saved to: {output_file}")
+
+    print_low_water_rain_warnings(df)
 
 
 if __name__ == "__main__":
