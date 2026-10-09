@@ -6,8 +6,10 @@ estimated rainy hours) for a fixed location near Ketchikan/Saxman, AK,
 using the Open-Meteo API, then saves the results to a dated CSV file.
 """
 
+import re
+import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -27,6 +29,11 @@ FORECAST_DAYS = 7
 
 # Open-Meteo endpoint
 API_URL = "https://api.open-meteo.com/v1/forecast"
+
+# Save CSV reports beside this script, regardless of the working directory
+FORECAST_REPORT_DIR = Path(__file__).resolve().parent / "forecast_report"
+ARCHIVE_FORECAST_DIR = Path(__file__).resolve().parent / "archive_forecast"
+REPORT_RETENTION_DAYS = 30
 
 # A day only triggers an alert when BOTH thresholds are exceeded
 MIN_RAIN_PROBABILITY = 50      # percent
@@ -219,15 +226,57 @@ def print_low_water_rain_warnings(df: pd.DataFrame) -> None:
                   f"Expected Rain: {row['Rain_Inches']:.3f} in)")
 
 
+def archive_old_forecast_csvs() -> None:
+    """Move CSVs older than 30 days into archive_forecast without overwriting files.
+
+    Use the report date in the filename, or the modification date for undated CSVs.
+    Files exactly 30 days old remain in forecast_report.
+    """
+    if not FORECAST_REPORT_DIR.exists():
+        return
+
+    cutoff = datetime.now().date() - timedelta(days=REPORT_RETENTION_DAYS)
+    for report in FORECAST_REPORT_DIR.iterdir():
+        if report.is_symlink() or not report.is_file() or report.suffix.lower() != ".csv":
+            continue
+
+        try:
+            report_date = None
+            match = re.search(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)", report.stem)
+            if match:
+                try:
+                    report_date = datetime.strptime(match.group(), "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+            if report_date is None:
+                report_date = datetime.fromtimestamp(report.stat().st_mtime).date()
+            if report_date >= cutoff:
+                continue
+
+            ARCHIVE_FORECAST_DIR.mkdir(parents=True, exist_ok=True)
+            destination = ARCHIVE_FORECAST_DIR / report.name
+            suffix = 1
+            while destination.exists():
+                destination = ARCHIVE_FORECAST_DIR / f"{report.stem}_{suffix}{report.suffix}"
+                suffix += 1
+
+            shutil.move(str(report), str(destination))
+            print(f"Archived forecast: {destination}")
+        except OSError as exc:
+            print(f"Could not archive {report.name}: {exc}")
+
+
 def save_forecast_csv(df: pd.DataFrame, prefix: str = "ketchikan_rain_forecast") -> str:
-    """Save the DataFrame to a CSV file named with today's date, and return the filename."""
+    """Save a dated CSV in forecast_report and return its path."""
+    FORECAST_REPORT_DIR.mkdir(parents=True, exist_ok=True)
     current_date = datetime.now().strftime("%Y-%m-%d")
-    output_file = f"{prefix}_{current_date}.csv"
+    output_file = FORECAST_REPORT_DIR / f"{prefix}_{current_date}.csv"
     df.to_csv(output_file, index=False)
-    return output_file
+    return str(output_file)
 
 
 def main() -> None:
+    archive_old_forecast_csvs()
     print(f"Geocoding address: {ADDRESS}")
 
     try:
