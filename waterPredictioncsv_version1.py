@@ -127,6 +127,23 @@ def get_rain_alert_days(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
 
+def count_dry_days_from_tomorrow(df: pd.DataFrame) -> int:
+    """Return how many consecutive days, starting tomorrow, have no rain alert.
+
+    Row 0 of the forecast is today, so counting starts at row 1. Returns 0
+    when rain is expected tomorrow.
+    """
+    alert_dates = set(get_rain_alert_days(df)["Date"])
+
+    dry_days = 0
+    for date in df["Date"].iloc[1:]:
+        if date in alert_dates:
+            break
+        dry_days += 1
+
+    return dry_days
+
+
 def print_rain_alerts(df: pd.DataFrame) -> None:
     """Print a warning for each day that exceeds both the probability and rainfall thresholds."""
     print("\nRain Probability Alerts\n")
@@ -184,13 +201,18 @@ def print_low_water_rain_warnings(df: pd.DataFrame) -> None:
         return
 
     alerts = get_rain_alert_days(df)
+    dry_days = count_dry_days_from_tomorrow(df)
 
     if alerts.empty:
         print(f"{len(users)} user(s) below {LOW_WATER_PERCENT}%, but no rain is "
               f"forecast above the alert thresholds.")
-        return
 
     for _, user in users.iterrows():
+        if dry_days > 0:
+            day_word = "day" if dry_days == 1 else "days"
+            print(f"{user['user_name']}: It will not rain for the next {dry_days} "
+                  f"{day_word}. Consider ordering some water.")
+
         for _, row in alerts.iterrows():
             print(f"{user['user_name']}, it will likely rain on {row['Date']} "
                   f"(Rain Probability: {row['Rain_Probability_%']}%, "
